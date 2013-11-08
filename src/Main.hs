@@ -1,5 +1,10 @@
 {-# LANGUAGE NoImplicitPrelude,OverloadedStrings #-}
 module Main where
-import ClassyPrelude
+
+import Prelude  (IO, print)
 
 import Data.Excel.FormPopulate
+
+
+main :: IO ()
+main = print "Hello" 
