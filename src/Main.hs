@@ -7,4 +7,4 @@ import Data.Excel.FormPopulate
 
 
 main :: IO ()
-main = print "Hello" 
+main = createForm
