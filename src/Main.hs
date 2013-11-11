@@ -1,11 +1,13 @@
 {-# LANGUAGE OverloadedStrings, TypeFamilies, QuasiQuotes,
   TemplateHaskell, MultiParamTypeClasses, GADTs, FlexibleContexts
 , EmptyDataDecls #-}
-import Yesod
-import Yesod.Default.Config (DefaultEnv (..), withYamlEnvironment)
+
+-- import Yesod
+
 import Data.Text (Text, pack)
 import Database.Persist (runPool, createPoolConfig, loadConfig,applyEnv)
 import Database.Persist.MongoDB (MongoConf (..), Action, ConnectionPool (..), MongoBackend)
+import Database.Persist.TH
 import Language.Haskell.TH.Syntax
 import Control.Applicative ((<$>), (<*>), liftA2, Applicative)
 
