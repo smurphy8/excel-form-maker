@@ -1,4 +1,3 @@
-
 OnpingTagCombined
   location_id               Int   Maybe
   slave_parameter_id        Int   Maybe
