@@ -3,7 +3,7 @@ cabal-dev
 *sandbox*
 *.*~
 #*#
-*.aes
+*.aes	
 *.o
 *.hi
 *.chi
