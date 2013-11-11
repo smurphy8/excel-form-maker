@@ -1,5 +1,9 @@
 dist
 cabal-dev
+*sandbox*
+*.*~
+#*#
+*.aes
 *.o
 *.hi
 *.chi

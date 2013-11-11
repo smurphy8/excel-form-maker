@@ -1,0 +1,22 @@
+Default: &defaults
+  host: localhost
+  connections: 10
+
+Development:
+  database: onping_production
+  <<: *defaults
+
+Testing:
+  database: onping_test
+  <<: *defaults
+
+Staging:
+  database: onping_production
+  connections: 100
+  <<: *defaults
+
+Production:
+  database: onping_production
+  connections: 100
+  host: localhost
+  <<: *defaults
