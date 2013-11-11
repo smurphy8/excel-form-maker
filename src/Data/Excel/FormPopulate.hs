@@ -6,14 +6,18 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 module Data.Excel.FormPopulate where
 import Yesod
 import qualified Database.Persist
 import Yesod.Default.Config (DefaultEnv (..), withYamlEnvironment)
-
+import Yesod.Core (MonadIO,MonadBaseControl)
 import Database.Persist 
 import Database.Persist.MongoDB
 import Database.Persist.TH
+import Data.Time
+import Network (PortID (PortNumber))
+import Database.Persist.Quasi (lowerCaseSettings)
 import Data.Excel.FormPopulate.Internal
 import Data.IntMap
 import Data.Text
@@ -51,6 +55,25 @@ createForm = do
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
 
+share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False }, mkMigrate "migrateAll"]
+    $(persistFileWith lowerCaseSettings "modelsMongo")
+
+
+
+
+
+
+
+
+{-===========================================================================-}
+{-                                 runDB                                     -}
+{-===========================================================================-}
+
+runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
+               Action m b -> m b
+
+runDB a = withMongoDBConn "onping_production" "localhost" (PortNumber 27017) Nothing 2000 $ \pool -> do 
+  (runMongoDBPool master a )  pool
 
 
 
