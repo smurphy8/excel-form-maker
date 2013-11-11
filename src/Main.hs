@@ -2,11 +2,10 @@
   TemplateHaskell, MultiParamTypeClasses, GADTs, FlexibleContexts
 , EmptyDataDecls #-}
 
--- import Yesod
-
 import Data.Text (Text, pack)
-import Database.Persist (runPool, createPoolConfig, loadConfig,applyEnv)
-import Database.Persist.MongoDB (MongoConf (..), Action, ConnectionPool (..), MongoBackend)
+import Database.Persist 
+import Database.Persist.MongoDB
+import Network (PortID (PortNumber))
 import Database.Persist.TH
 import Language.Haskell.TH.Syntax
 import Control.Applicative ((<$>), (<*>), liftA2, Applicative)
@@ -29,12 +28,14 @@ Question
 {-                                 MAIN                                      -}
 {-===========================================================================-}
 
-
-main = do
-    -- dbconf <- withYamlEnvironment mongoConfFile Development
+--   connPool <- createMongoDBPipePool "localhost" 27017 Nothing 100 100 1000 
+main = withMongoDBConn "onping_production" "localhost" (PortNumber 27017) Nothing 2000 $ \pool -> do 
+  (runMongoDBPool master (selectList [] [Asc QuestionnaireId]))  pool
+-- import 
+    -- dbconf <- withYamlEnvironment mongoConfFile Devxelopment
     --             Database.Persist.loadConfig >>=
     --           Database.Persist.applyEnv
-    -- pool <- Database.Persist.createPoolConfig (dbconf)
-    return () 
+    -- pool <- Database.Persist.createPoolConfig (dbconfp)
+
 --    warp 3000 $ App pool dbconf
 --    where mongoConfFile = "./mongoDB-nonscaffold.yml" 
