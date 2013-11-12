@@ -41,12 +41,6 @@ dataList = [ FICV 0 16 11 (CellDouble 333.0), FICV 0 16 13 (CellDouble 332.0), F
            
 
 
-
-
-
-
-
-
 createForm :: IO () 
 createForm = do 
   x <- xlsx "BuildSheet.xlsx"
@@ -59,37 +53,14 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
     $(persistFileWith lowerCaseSettings "modelsMongo")
 
 
-
-
-
-
-
-
 {-===========================================================================-}
 {-                                 runDB                                     -}
 {-===========================================================================-}
 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
-
 runDB a = withMongoDBConn "onping_production" "localhost" (PortNumber 27017) Nothing 2000 $ \pool -> do 
   (runMongoDBPool master a )  pool
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  
