@@ -8,19 +8,23 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 module Data.Excel.FormPopulate where
-import Yesod
+import Yesod hiding (runDB)
 import qualified Database.Persist
 import Yesod.Default.Config (DefaultEnv (..), withYamlEnvironment)
 import Yesod.Core (MonadIO,MonadBaseControl)
+import Data.Maybe
 import Database.Persist 
 import Database.Persist.MongoDB
 import Database.Persist.TH
 import Data.Time
+import Statistics.Sample
 import Network (PortID (PortNumber))
 import Database.Persist.Quasi (lowerCaseSettings)
+import Control.Applicative
 import Data.Excel.FormPopulate.Internal
 import Data.IntMap
 import Data.Text
+import qualified Data.Vector.Unboxed as V
 import Codec.Xlsx.Parser
 import Codec.Xlsx.Writer
 import Codec.Xlsx.Lens
@@ -77,13 +81,38 @@ runDB a = withMongoDBConn "onping_production" "localhost" (PortNumber 27017) Not
 
 
 
+data TishReportData a = TRD {
+      row::Int, 
+      col :: Int, 
+      sheet :: Int, 
+      lookup :: Int,
+      transform :: (a -> CellValue)
+    }
 
 
+-- |Temp Tish Report
+tishWaterData :: [Int]
+tishWaterData = [3176,3177,3163,3183,3184,3186,3187,3189,3190]
 
 
+delta = realToFrac 15
 
+mkTurbidityRow rowNum raw fresh baseTime stepLst = do
+  runDB $ do 
+    raw<- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just raw)][]
+ 
+    fresh <- selectList (Prelude.foldl (\a b -> [OnpingTagHistoryTime >=. (Just (addUTCTime b baseTime)),OnpingTagHistoryTime <. (Just (addUTCTime (delta + b) baseTime)),OnpingTagHistoryPid ==. (Just fresh)] ++ a)) []
+    
+    return $ [FICV 0 2  rowNum ((CellDouble).onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ] ++
+             [ FICV 0 5  rowNum ((CellDouble).onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ,
+               FICV 0 6  rowNum ((CellDouble).onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ,
+              FICV 0 7  rowNum ((CellDouble).onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ,
+              FICV 0 8  rowNum ((CellDouble).onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ,
+              FICV 0 9  rowNum ((CellDouble).onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ,
+              FICV 0 10 rowNum ((CellDouble).onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ]
+    
 
-
+[2, 5, 6, 7, 8, 9, 10] 
 
 
 

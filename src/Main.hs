@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings, TypeFamilies, QuasiQuotes,
   TemplateHaskell, MultiParamTypeClasses, GADTs, FlexibleContexts,RankNTypes
 , EmptyDataDecls #-}
-import Yesod.Core (MonadIO,MonadBaseControl,LiftIO)
+import Yesod.Core (MonadIO,MonadBaseControl)
 import Data.Text (Text, pack)
 --import Control.Monad.Trans.Control
 import Database.Persist
