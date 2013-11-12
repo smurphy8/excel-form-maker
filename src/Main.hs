@@ -2,8 +2,8 @@
   TemplateHaskell, MultiParamTypeClasses, GADTs, FlexibleContexts,RankNTypes
 , EmptyDataDecls #-}
 
+import Yesod.Core (MonadIO,MonadBaseControl)
 
-import Yesod.Core (MonadIO,MonadBaseControl,LiftIO)
 import Data.Text (Text, pack)
 
 

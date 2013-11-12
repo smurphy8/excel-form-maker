@@ -6,21 +6,26 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
 module Data.Excel.FormPopulate where
-import Yesod
+import Yesod hiding (runDB)
 import qualified Database.Persist
 import Yesod.Default.Config (DefaultEnv (..), withYamlEnvironment)
 import Yesod.Core (MonadIO,MonadBaseControl)
+import Data.Maybe
 import Database.Persist 
 import Database.Persist.MongoDB
 import Database.Persist.TH
 import Data.Time
+import Statistics.Sample
 import Network (PortID (PortNumber))
 import Database.Persist.Quasi (lowerCaseSettings)
+import Control.Applicative
 import Data.Excel.FormPopulate.Internal
 import Data.IntMap
 import Data.Text
+import qualified Data.Vector.Unboxed as V
 import Codec.Xlsx.Parser
 import Codec.Xlsx.Writer
 import Codec.Xlsx.Lens
@@ -63,4 +68,52 @@ runDB a = withMongoDBConn "onping_production" "localhost" (PortNumber 27017) Not
   (runMongoDBPool master a )  pool
 
 
-  
+
+data TishReportData a = TRD {
+      row::Int, 
+      col :: Int, 
+      sheet :: Int, 
+      lookup :: Int,
+      transform :: (a -> CellValue)
+    }
+
+
+-- |Temp Tish Report
+tishWaterData :: [Int]
+tishWaterData = [3176,3177,3163,3183,3184,3186,3187,3189,3190]
+
+
+delta = realToFrac 15
+
+
+mkTurbidityRow :: forall (m :: * -> *).
+                        (MonadIO m, MonadBaseControl IO m) =>
+                        Int
+                        -> Int
+                        -> Int
+                        -> UTCTime
+                        -> [NominalDiffTime]
+                        -> m [FullyIndexedCellValue]
+mkTurbidityRow rowNum raw fresh baseTime stepList = do
+  runDB $ do
+    mraw <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just raw)][]
+    freshLst <- selectList (Prelude.foldl
+                         (\a b -> [ OnpingTagHistoryTime >=. (Just (addUTCTime b baseTime)) ,
+                                    OnpingTagHistoryTime <. (Just (addUTCTime (delta + b) baseTime)),
+                                    OnpingTagHistoryPid ==. (Just fresh) ] ++ a ) [] stepList ) []
+
+    return $ [ FICV 0 2  rowNum ((CellDouble).fromJust.onpingTagHistoryVal.entityVal.(fromJust ) $ mraw) ] ++ [ FICV 0 i  rowNum ((CellDouble). fromJust . onpingTagHistoryVal.entityVal $ v ) | (i,v) <- Prelude.zip test freshLst ]
+
+test :: [Int]
+test = [2, 5, 6, 7, 8, 9, 10] 
+
+
+
+
+
+
+-- [ FICV 0 2  rowNum ((CellDouble).fromJust.onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ] ++ 
+
+
+
+--    
