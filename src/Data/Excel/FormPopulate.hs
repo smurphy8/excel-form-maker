@@ -10,22 +10,22 @@
 {-# LANGUAGE RankNTypes #-}
 module Data.Excel.FormPopulate where
 import Yesod hiding (runDB)
-import qualified Database.Persist
-import Yesod.Default.Config (DefaultEnv (..), withYamlEnvironment)
-import Yesod.Core (MonadIO,MonadBaseControl)
+
+-- import Yesod.Default.Config (DefaultEnv (..), withYamlEnvironment)
+-- import Yesod.Core (MonadIO,MonadBaseControl)
 import Data.Maybe
-import Database.Persist 
+
 import Database.Persist.MongoDB
-import Database.Persist.TH
+
 import Data.Time
-import Statistics.Sample
+
 import Network (PortID (PortNumber))
 import Database.Persist.Quasi (lowerCaseSettings)
 import Control.Applicative
-import Data.Excel.FormPopulate.Internal
-import Data.IntMap
-import Data.Text
-import qualified Data.Vector.Unboxed as V
+
+
+import Data.Text hiding (take,head,tail,zip,zipWith,concat)
+
 import Codec.Xlsx.Parser
 import Codec.Xlsx.Writer
 import Codec.Xlsx.Lens
@@ -33,7 +33,7 @@ import Codec.Xlsx
 import Language.Haskell.TH.Syntax
 
 
-
+dataList :: [FullyIndexedCellValue]
 dataList = [ FICV 0 16 11 (CellDouble 333.0), FICV 0 16 13 (CellDouble 332.0), FICV 0 16 13 (CellDouble 332.0), FICV 0 16 14 (CellDouble 332.0),
              FICV 0 17 11 (CellDouble 333.0), FICV 0 17 13 (CellDouble 332.0), FICV 0 17 13 (CellDouble 332.0), FICV 0 17 14 (CellDouble 332.0),
              FICV 0 18 11 (CellDouble 333.0), FICV 0 18 13 (CellDouble 332.0), FICV 0 18 13 (CellDouble 332.0), FICV 0 18 14 (CellDouble 332.0),
@@ -46,12 +46,6 @@ dataList = [ FICV 0 16 11 (CellDouble 333.0), FICV 0 16 13 (CellDouble 332.0), F
            
 
 
-createForm :: IO () 
-createForm = do 
-  x <- xlsx "BuildSheet.xlsx"
-  ws <- getWorksheets x
-  editWs <- return $ setMultiMappedSheetCellData ws dataList
-  writeXlsx "ptest2.xlsx" x (Just editWs)
 
 
 share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False }, mkMigrate "migrateAll"]
@@ -64,7 +58,7 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
-runDB a = withMongoDBConn "onping_production" "localhost" (PortNumber 27017) Nothing 2000 $ \pool -> do 
+runDB a = withMongoDBConn "onping_production" "10.84.207.130" (PortNumber 27017) Nothing 2000 $ \pool -> do 
   (runMongoDBPool master a )  pool
 
 
@@ -83,36 +77,103 @@ tishWaterData :: [Int]
 tishWaterData = [3176,3177,3163,3183,3184,3186,3187,3189,3190]
 
 
-delta = realToFrac 15
+fresh :: Int
+fresh = 3183
+
+raw :: Int
+raw = 3163
+
+delta :: NominalDiffTime
+delta = realToFrac (20::Integer)
 
 
-mkTurbidityRow :: forall (m :: * -> *).
-                        (MonadIO m, MonadBaseControl IO m) =>
-                        Int
-                        -> Int
-                        -> Int
-                        -> UTCTime
-                        -> [NominalDiffTime]
-                        -> m [FullyIndexedCellValue]
-mkTurbidityRow rowNum raw fresh baseTime stepList = do
+
+testTime :: IO UTCTime
+testTime = do 
+   k <- getCurrentTime
+   return $ UTCTime (fromGregorian  2013 10 01 ) (fromIntegral $ 4 * 3600)
+   
+oneDay :: NominalDiffTime 
+oneDay = realToFrac $ 60*60*24
+
+
+mkRowList bTime = do 
+  mapM (\(i,newTime) -> mkTurbidityRow (i) (newTime) defaultStepList) (zipWith (\i b -> (i+8,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+      where r = realToFrac
+
+testMkRowList = do 
+  z   <- testTime
+  rowListList <- mkRowList z
+  print rowListList
+
+mkTurbidityRow  :: (MonadIO m, MonadBaseControl IO m) =>
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkTurbidityRow rowNum baseTime stepList = do
   runDB $ do
     mraw <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just raw)][]
-    freshLst <- selectList (Prelude.foldl
-                         (\a b -> [ OnpingTagHistoryTime >=. (Just (addUTCTime b baseTime)) ,
-                                    OnpingTagHistoryTime <. (Just (addUTCTime (delta + b) baseTime)),
-                                    OnpingTagHistoryPid ==. (Just fresh) ] ++ a ) [] stepList ) []
+    freshMlist <-  mapM  (\s -> selectFirst (mkDataRowFilter baseTime s) [Asc OnpingTagHistoryTime] ) stepList
+    let mRawFICV = (onpingTagToFICV 0 2 rowNum).entityVal <$> mraw       
+        freshList = fromJust $ sequence freshMlist           
+        turbidityIdx = (\(i,x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshList))
+        
+    return $ fromJust mRawFICV : turbidityIdx
 
-    return $ [ FICV 0 2  rowNum ((CellDouble).fromJust.onpingTagHistoryVal.entityVal.(fromJust ) $ mraw) ] ++ [ FICV 0 i  rowNum ((CellDouble). fromJust . onpingTagHistoryVal.entityVal $ v ) | (i,v) <- Prelude.zip test freshLst ]
-
-test :: [Int]
-test = [2, 5, 6, 7, 8, 9, 10] 
-
-
-
+onpingTagToFICV :: Int -> Int -> Int -> OnpingTagHistory -> FullyIndexedCellValue
+onpingTagToFICV sheetNum colNum rowNum (OnpingTagHistory _ _ (Just v)) = FICV sheetNum colNum rowNum (CellDouble v)
+onpingTagToFICV sheetNum colNum rowNum (OnpingTagHistory _ _ (Nothing)) = FICV sheetNum colNum rowNum (CellText "ERROR VALUE NOT FOUND")
 
 
+testMkTurbidityRow :: IO () 
+testMkTurbidityRow = do 
+  z   <- testTime
+  ans <- mkTurbidityRow 0 z defaultStepList
 
--- [ FICV 0 2  rowNum ((CellDouble).fromJust.onpingTagHistoryVal.entityVal.(fromJust ) $ raw) ] ++ 
+  print z
+  print $  ans
+  
+
+mkDataRowFilter  :: UTCTime -> NominalDiffTime -> [Filter OnpingTagHistory]
+mkDataRowFilter baseTime b  = let newBaseTime = addUTCTime b baseTime
+                              in  getPointInDelta newBaseTime
+
+mkTishFilter  :: UTCTime -> [NominalDiffTime] -> [Filter OnpingTagHistory]
+mkTishFilter baseTime stepList= (Prelude.foldl
+                         (\a b -> (mkDataRowFilter baseTime b) ||. a ) (mkDataRowFilter baseTime (head stepList)) (tail stepList ))
+
+
+
+-- | get a point at a certain time but return a point close to it by the default delta
+getPointInDelta :: UTCTime -> [Filter OnpingTagHistory]
+getPointInDelta baseTime = [ OnpingTagHistoryTime >=. (Just baseTime) ,
+                                      OnpingTagHistoryTime <. (Just (addUTCTime delta  baseTime)),
+                                      OnpingTagHistoryPid ==. (Just fresh) ]
+
+
+
+createForm :: IO () 
+createForm = do 
+  print "getting worksheet"
+  x <- xlsx "BuildSheet.xlsx"  
+  ws <- getWorksheets x
+  z  <- testTime 
+  print "making Rows"
+  dList <- mkRowList z
+  print "updating Spreadsheet"
+  editWs <- return $ setMultiMappedSheetCellData ws (concat dList)
+  writeXlsx "ptest2.xlsx" x (Just editWs)
+
+
+
+
+defaultStepList :: [NominalDiffTime ]
+defaultStepList = take tc $ fmap (realToFrac.(* stp)) [zero ..]
+         where 
+           tc :: Int 
+           tc = 6
+           stp :: Integer
+           stp = 14400
+           zero :: Integer
+           zero = 0
 
 
 
