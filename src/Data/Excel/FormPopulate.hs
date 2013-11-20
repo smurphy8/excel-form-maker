@@ -78,10 +78,10 @@ tishWaterData = [3176,3177,3163,3183,3184,3186,3187,3189,3190]
 
 
 fresh :: Int
-fresh = 3183
+fresh = 19813
 
 raw :: Int
-raw = 3163
+raw = 19814 --3163
 
 delta :: NominalDiffTime
 delta = realToFrac (20::Integer)
@@ -91,7 +91,7 @@ delta = realToFrac (20::Integer)
 testTime :: IO UTCTime
 testTime = do 
    k <- getCurrentTime
-   return $ UTCTime (fromGregorian  2013 10 01 ) (fromIntegral $ 4 * 3600)
+   return $ UTCTime (fromGregorian  2013 10 14) (fromIntegral $ 4 * 3600)
    
 oneDay :: NominalDiffTime 
 oneDay = realToFrac $ 60*60*24
@@ -178,3 +178,12 @@ defaultStepList = take tc $ fmap (realToFrac.(* stp)) [zero ..]
 
 
 --    
+
+
+testRaw = do 
+ z <- testTime
+ k <-  runDB $ selectList ([OnpingTagHistoryPid ==.(Just 19813) ,OnpingTagHistoryTime >.(Just z)  ]||.[OnpingTagHistoryPid ==. (Just 19814), OnpingTagHistoryTime >. (Just z)]) [Desc OnpingTagHistoryTime , LimitTo 1000]
+ print $ (onpingTagHistoryVal.entityVal) <$> k 
+
+
+
