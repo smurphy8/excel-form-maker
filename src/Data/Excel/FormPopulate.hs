@@ -110,9 +110,9 @@ oneDay = realToFrac $ 60*60*24
 
 
 mkRowList bTime = do 
-  mapM (\(i,newTime) -> mkTurbidityRow (i) (newTime) defaultStepList) (zipWith (\i b -> (i+8,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+  fcn mkTurbidityRow
       where r = realToFrac
-
+            fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+8,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 testMkRowList = do 
   z   <- testTime
   rowListList <- mkRowList z
@@ -126,7 +126,7 @@ mkTurbidityRow rowNum baseTime stepList = do
   runDB $ do
     mrawTurb <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just rawTurb)][]
     freshTurbMlist <-  mapM  (\s -> selectFirst (mkDataRowFilter freshTurb baseTime s) [Asc OnpingTagHistoryTime] ) stepList
-    let mRawTurbFICV = (onpingTagToFICV 0 2 rowNum).entityVal <$> mrawTurb       
+    let mRawTurbFICV = (onpingTagToFICV 0 2 rowNum).entityVal <$> mrawTurb 
         freshTurbList = fromJust $ sequence freshTurbMlist           
         turbidityIdx = (\(i,x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshTurbList))
         
