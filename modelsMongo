@@ -21,7 +21,7 @@ OnpingTagHistory
   pid			    Int Maybe
   time			    UTCTime Maybe
   val			    Double Maybe
-
+  deriving Show
 
 --Quieries
   
