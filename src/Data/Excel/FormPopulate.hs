@@ -8,6 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
+
 module Data.Excel.FormPopulate where
 import Yesod hiding (runDB)
 
@@ -51,8 +52,6 @@ dataList = [ FICV 0 16 11 (CellDouble 333.0), FICV 0 16 13 (CellDouble 332.0), F
            
 
 
-
-
 share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False }, mkMigrate "migrateAll"]
     $(persistFileWith lowerCaseSettings "modelsMongo")
 
@@ -91,6 +90,7 @@ rawTurb = 19814 --3163
 chlorine :: Int
 chlorine = 3195
 
+totalFlow :: Int 
 totalFlow = 3950
 
 
@@ -128,29 +128,21 @@ mkTurbidityRow rowNum baseTime stepList = do
     freshTurbMlist <-  mapM  (\s -> selectFirst (mkDataRowFilter freshTurb baseTime s) [Asc OnpingTagHistoryTime] ) stepList
     let mRawTurbFICV = (onpingTagToFICV 0 2 rowNum).entityVal <$> mrawTurb 
         freshTurbList = fromJust $ sequence freshTurbMlist           
-        turbidityIdx = (\(i,x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshTurbList))
+        turbidityIdx = (\(i, x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshTurbList))
         
     return $ fromJust mRawTurbFICV : turbidityIdx
-
-
-
 
 
 mkChlorineRow  rowNum baseTime stepList = do
   runDB $ do
     chlorineMlist <- mapM (\s -> selectFirst (mkDataRowFilter chlorine baseTime s) [Asc OnpingTagHistoryTime])  stepList 
     let chlorineList = fromJust $ sequence chlorineMlist
-        chlorineIdx = (\(i,x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [11 .. 16] (entityVal <$> chlorineList))
-        
+        chlorineIdx = (\(i,x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [11 .. 16] (entityVal <$> chlorineList))        
     return $ chlorineIdx
-
-    
-
 
 -- mkTishFilter  :: UTCTime -> [NominalDiffTime] -> [Filter OnpingTagHistory]
 -- mkTishFilter baseTime stepList= (Prelude.foldl
 --                          (\a b -> (mkDataRowFilter baseTime b) ||. a ) (mkDataRowFilter baseTime (head stepList)) (tail stepList ))
-
 
 
 onpingTagToFICV :: Int -> Int -> Int -> OnpingTagHistory -> FullyIndexedCellValue
@@ -166,13 +158,10 @@ testMkTurbidityRow = do
   print $  ans
   
 
+
 mkDataRowFilter  :: Int -> UTCTime -> NominalDiffTime -> [Filter OnpingTagHistory]
 mkDataRowFilter i baseTime b  = let newBaseTime = addUTCTime b baseTime
                                 in  getPointInDelta i newBaseTime
-
-
-
-
 
 
 -- | get a point at a certain time but return a point close to it by the default delta
@@ -180,7 +169,6 @@ getPointInDelta :: Int -> UTCTime -> [Filter OnpingTagHistory]
 getPointInDelta i baseTime = [ OnpingTagHistoryTime >=. (Just baseTime) ,
                                       OnpingTagHistoryTime <. (Just (addUTCTime delta  baseTime)),
                                       OnpingTagHistoryPid ==. (Just i) ]
-
 
 
 createForm :: IO () 
@@ -208,9 +196,6 @@ defaultStepList = take tc $ fmap (realToFrac.(* stp)) [zero ..]
            zero :: Integer
            zero = 0
 
-
-
---    
 
 
 testRawTurb = do 
