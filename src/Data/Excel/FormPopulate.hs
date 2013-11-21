@@ -88,7 +88,7 @@ rawTurb :: Int
 rawTurb = 19814 --3163
 
 chlorine :: Int
-chlorine = 3195
+chlorine = 3189
 
 totalFlow :: Int 
 totalFlow = 3950
@@ -113,6 +113,8 @@ mkRowList bTime = do
   fcn mkTurbidityRow
       where r = realToFrac
             fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+8,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+
+
 testMkRowList = do 
   z   <- testTime
   rowListList <- mkRowList z
@@ -155,8 +157,7 @@ testMkTurbidityRow = do
   z   <- testTime
   ans <- mkTurbidityRow 0 z defaultStepList
   print z
-  print $  ans
-  
+  print $  ans  
 
 
 mkDataRowFilter  :: Int -> UTCTime -> NominalDiffTime -> [Filter OnpingTagHistory]
