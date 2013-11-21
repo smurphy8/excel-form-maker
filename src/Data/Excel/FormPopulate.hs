@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE EmptyDataDecls    #-}
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -26,7 +27,7 @@ import Control.Applicative
 
 
 import Data.Text hiding (take,head,tail,zip,zipWith,concat)
-
+import Debug.Trace
 import Codec.Xlsx.Parser
 import Codec.Xlsx.Writer
 import Codec.Xlsx.Lens
@@ -62,6 +63,7 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
+
 runDB a = withMongoDBConn "onping_production" "10.84.207.130" (PortNumber 27017) Nothing 2000 $ \pool -> do 
   (runMongoDBPool master a )  pool
 
@@ -82,10 +84,10 @@ tishWaterData = [3176,3177,3163,3183,3184,3186,3187,3189,3190]
 
 
 freshTurb :: Int
-freshTurb = 19813
+freshTurb = 3183
 
 rawTurb :: Int
-rawTurb = 19814 --3163
+rawTurb = 3163
 
 chlorine :: Int
 chlorine = 3189
@@ -93,10 +95,8 @@ chlorine = 3189
 totalFlow :: Int 
 totalFlow = 3950
 
-
-
 delta :: NominalDiffTime
-delta = realToFrac (20::Integer)
+delta = realToFrac (30::Integer)
 
 
 
@@ -108,9 +108,13 @@ testTime = do
 oneDay :: NominalDiffTime 
 oneDay = realToFrac $ 60*60*24
 
+mkRowList  :: (MonadIO m, MonadBaseControl IO m) =>
+     UTCTime -> m [[FullyIndexedCellValue]]
 
 mkRowList bTime = do 
-  fcn mkTurbidityRow
+  l1 <- fcn mkTurbidityRow
+  l2 <- fcn mkChlorineRow
+  return $ l1 ++ l2
       where r = realToFrac
             fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+8,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
@@ -129,9 +133,8 @@ mkTurbidityRow rowNum baseTime stepList = do
     mrawTurb <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just rawTurb)][]
     freshTurbMlist <-  mapM  (\s -> selectFirst (mkDataRowFilter freshTurb baseTime s) [Asc OnpingTagHistoryTime] ) stepList
     let mRawTurbFICV = (onpingTagToFICV 0 2 rowNum).entityVal <$> mrawTurb 
-        freshTurbList = fromJust $ sequence freshTurbMlist           
-        turbidityIdx = (\(i, x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshTurbList))
-        
+        freshTurbList = fromJust $ sequence freshTurbMlist
+        turbidityIdx = (\(i, x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshTurbList))        
     return $ fromJust mRawTurbFICV : turbidityIdx
 
 
@@ -182,6 +185,7 @@ createForm = do
   dList <- mkRowList z
   print "updating Spreadsheet"
   editWs <- return $ setMultiMappedSheetCellData ws (concat dList)
+  print "writing Spreadsheet"
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
 
