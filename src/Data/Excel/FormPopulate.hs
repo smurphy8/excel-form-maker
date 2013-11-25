@@ -116,7 +116,7 @@ mkRowList bTime = do
   l2 <- fcn mkChlorineRow
   return $ l1 ++ l2
       where r = realToFrac
-            fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+8,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+            fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+12,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
 
 testMkRowList = do 
