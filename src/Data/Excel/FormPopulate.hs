@@ -108,20 +108,20 @@ testTime = do
 oneDay :: NominalDiffTime 
 oneDay = realToFrac $ 60*60*24
 
-mkRowList  :: (MonadIO m, MonadBaseControl IO m) =>
+mkRowList  :: (MonadIO m, MonadBaseControl IO m) => Int ->
      UTCTime -> m [[FullyIndexedCellValue]]
 
-mkRowList bTime = do 
+mkRowList bRow bTime = do 
   l1 <- fcn mkTurbidityRow
   l2 <- fcn mkChlorineRow
   return $ l1 ++ l2
       where r = realToFrac
-            fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+8,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+            fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
 
 testMkRowList = do 
   z   <- testTime
-  rowListList <- mkRowList z
+  rowListList <- mkRowList 0 z
   print rowListList
 
 
@@ -190,7 +190,7 @@ createForm = do
   ws <- getWorksheets x
   z  <- testTime 
   print "making Rows"
-  dList <- mkRowList z
+  dList <- mkRowList 12 z
   print "updating Spreadsheet"
   editWs <- return $ setMultiMappedSheetCellData ws (concat dList)
   print "writing Spreadsheet"
