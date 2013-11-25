@@ -134,7 +134,7 @@ mkTurbidityRow rowNum baseTime stepList = do
     freshTurbMlist <-  mapM  (\s -> selectFirst (mkDataRowFilter freshTurb baseTime s) [Asc OnpingTagHistoryTime] ) stepList
     let mRawTurbFICV = (onpingTagToFICV 1 2 rowNum).entityVal <$> mrawTurb 
         freshTurbList = fromJust $ sequence freshTurbMlist
-        turbidityIdx = (\(i, x) -> (onpingTagToFICV 0 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshTurbList))        
+        turbidityIdx = (\(i, x) -> (onpingTagToFICV 1 i rowNum x)) <$> (zip [5, 6, 7, 8, 9, 10] (entityVal <$> freshTurbList))        
     return $ fromJust mRawTurbFICV : turbidityIdx
 
 
@@ -148,9 +148,10 @@ mkChlorineRow  rowNum baseTime stepList = do
 
 -- mkTotalFlowRow rowNum baseTime stepList = do 
 --   runDB $ do 
---     totalFlowMlist <- mapM (\s -> selectFirst (mkDataRowFilter totalFlow baseTime s ) [ Asc OnpingTagHistoryTime]) stepList 
---     let totalFlowList = fromJust $ sequence totalFlowMlist
---         (totalFlow
+--     (Just totalFlowList)<- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just totalFlow)][]
+--     let 
+--         (totalFlowIdx = (\(i,x) -> (onpingTagToFICV 0 (mkDataRowFilter
+
 -- mkTishFilter  :: UTCTime -> [NominalDiffTime] -> [Filter OnpingTagHistory]
 -- mkTishFilter baseTime stepList= (Prelude.foldl
 --                          (\a b -> (mkDataRowFilter baseTime b) ||. a ) (mkDataRowFilter baseTime (head stepList)) (tail stepList ))
