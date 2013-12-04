@@ -24,9 +24,9 @@ import Data.Time
 import Network (PortID (PortNumber))
 import Database.Persist.Quasi (lowerCaseSettings)
 import Control.Applicative
-
-
-import Data.Text hiding (take,head,tail,zip,zipWith,concat)
+import Debug.Trace
+import Data.List (foldl')
+import Data.Text hiding (take,head,tail,zip,zipWith,concat,foldl')
 import Debug.Trace
 import Codec.Xlsx.Parser
 import Codec.Xlsx.Writer
@@ -82,6 +82,29 @@ data TishReportData a = TRD {
 tishWaterData :: [Int]
 tishWaterData = [3176,3177,3163,3183,3184,3186,3187,3189,3190]
 
+-- | z12 26
+rawWaterPH :: Int
+rawWaterPH = 3176
+
+-- | aa12 ab12
+finishWaterPH :: Int
+finishWaterPH = 3190
+
+
+-- | i12
+backwashFlowTotal :: Int
+backwashFlowTotal = 3955
+
+
+-- | c12
+filterOneRunStatus :: Int
+filterOneRunStatus = 3128
+
+-- | d12
+filterTwoRunStatus :: Int
+filterTwoRunStatus = 3144
+
+
 
 freshTurb :: Int
 freshTurb = 3183
@@ -108,20 +131,39 @@ testTime = do
 oneDay :: NominalDiffTime 
 oneDay = realToFrac $ 60*60*24
 
-mkRowList  :: (MonadIO m, MonadBaseControl IO m) => Int -> 
+mkRowList1  :: (MonadIO m, MonadBaseControl IO m) => Int -> 
      UTCTime -> m [[FullyIndexedCellValue]]
-mkRowList bRow bTime = do 
-  l1 <- fcn mkTurbidityRow
-  l2 <- fcn mkChlorineRow
-  l3 <- fcn mkTotalFlowRow
-  return $ l1 ++ l2 ++ l3
+mkRowList1 bRow bTime = do 
+  l1 <- fcn30 mkTurbidityRow
+  l2 <- fcn30 mkChlorineRow
+  return $ l1 ++ l2
       where r = realToFrac
-            fcn f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+            fcn30 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+mkRowList2  :: (MonadIO m, MonadBaseControl IO m) => Int -> 
+     UTCTime -> m [[FullyIndexedCellValue]]
+mkRowList2 bRow bTime = do 
+  l3 <- fcn31 mkTotalFlowRow
+  l4 <- fcn31 mkRawWaterPhRow
+  liftIO $ print "making finish Water" 
+  l5 <- fcn31 mkFinishWaterPhRow1
+
+  l6 <- fcn31 mkFinishWaterPhRow2
+  liftIO $ print "making backwash"   
+  l7 <- fcn31 mkBackwashFlowTotalRow
+  liftIO $ print "making finish Water" 
+  l8 <- fcn31 mkRunStatusAccumulator1Row
+  liftIO $ print "making finish Water" 
+  l9 <- fcn31 mkRunStatusAccumulator2Row
+  liftIO $ print "done"   
+  return $ l3 ++ l4 ++ l5 ++ l6 ++ l7 ++ l8 ++ l9
+      where r = realToFrac
+            fcn31 !f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+
 
 
 testMkRowList = do 
   z   <- testTime
-  rowListList <- mkRowList 0 z
+  rowListList <- mkRowList1 0 z
   print rowListList
 
 
@@ -143,8 +185,9 @@ mkChlorineRow  rowNum baseTime stepList = do
     chlorineMlist <- mapM (\s -> selectFirst (mkDataRowFilter chlorine baseTime s) [Asc OnpingTagHistoryTime])  stepList 
     let chlorineList = fromJust $ sequence chlorineMlist
         chlorineIdx = (\(i,x) -> (onpingTagToFICV 1 i rowNum x)) <$> (zip [25 .. 30] (entityVal <$> chlorineList))        
-    
     return $ chlorineIdx
+
+
 
 
 mkTotalFlowRow rowNum baseTime stepList = do 
@@ -154,9 +197,84 @@ mkTotalFlowRow rowNum baseTime stepList = do
         
 
 
+-- -- | z12 26
+-- rawWaterPH :: Int
+-- rawWaterPH = 3176
+
+mkRawWaterPhRow ::  (MonadIO m, MonadBaseControl IO m) =>
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkRawWaterPhRow rowNum baseTime stepList = do 
+  runDB $ do 
+    (Just rawWaterPHList)<- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just rawWaterPH)][]
+    return $ [ (onpingTagToFICV 0 26 rowNum).entityVal $ rawWaterPHList ]
+
+
+-- -- | aa12 ab12
+-- finishWaterPH :: Int
+-- finishWaterPH = 3190
+
+mkFinishWaterPhRow1 ::  (MonadIO m, MonadBaseControl IO m) =>
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkFinishWaterPhRow1 rowNum baseTime stepList = do 
+  runDB $ do 
+    (Just finishWaterPHList)<- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just finishWaterPH)][]
+    return $ [ (onpingTagToFICV 0 27 rowNum).entityVal $ finishWaterPHList]
+
+mkFinishWaterPhRow2 ::  (MonadIO m, MonadBaseControl IO m) =>
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkFinishWaterPhRow2 rowNum baseTime stepList = do 
+  runDB $ do
+    let newBaseTime = addUTCTime  (realToFrac 4*3600) baseTime
+    (Just finishWaterPHList)<- selectFirst [OnpingTagHistoryTime >=. (Just newBaseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta newBaseTime)), OnpingTagHistoryPid ==. (Just finishWaterPH)][]
+    return $ [ (onpingTagToFICV 0 28 rowNum).entityVal $ finishWaterPHList]
+
+-- -- | i12
+-- backwashFlowTotal :: Int
+-- backwashFlowTotal = 3955
+
+mkBackwashFlowTotalRow ::  (MonadIO m, MonadBaseControl IO m) =>
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkBackwashFlowTotalRow rowNum baseTime stepList = do 
+  runDB $ do
+    (Just backwashFlowTotalList)<- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just backwashFlowTotal)][]
+    return $ [ (onpingTagToFICV 0 12 rowNum).entityVal $ backwashFlowTotalList ]
+
+
+
+
+
+-- -- | c12
+-- filterOneRunStatus :: Int
+-- filterOneRunStatus = 3128
+
+-- -- | d12
+-- filterTwoRunStatus :: Int
+-- filterTwoRunStatus = 3144
+
+
 -- mkTishFilter  :: UTCTime -> [NominalDiffTime] -> [Filter OnpingTagHistory]
 -- mkTishFilter baseTime stepList= (Prelude.foldl
 --                          (\a b -> (mkDataRowFilter baseTime b) ||. a ) (mkDataRowFilter baseTime (head stepList)) (tail stepList ))
+
+
+mkRunStatusAccumulator1Row ::  (MonadIO m, MonadBaseControl IO m) =>
+                            Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkRunStatusAccumulator1Row rowNum baseTime stepList = do 
+  runDB $ do
+    statusAccum1List <- selectList [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][Asc OnpingTagHistoryTime, LimitTo 6000]
+    let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
+    return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
+
+
+mkRunStatusAccumulator2Row ::  (MonadIO m, MonadBaseControl IO m) =>
+                            Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
+  runDB $ do
+    statusAccum1List <- selectList [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterTwoRunStatus)][Asc OnpingTagHistoryTime, LimitTo 6000]
+    let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List        
+    return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ ttl)]
+
+
 
 
 onpingTagToFICV :: Int -> Int -> Int -> OnpingTagHistory -> FullyIndexedCellValue
@@ -191,9 +309,10 @@ createForm = do
   ws <- getWorksheets x
   z  <- testTime 
   print "making Rows"
-  dList <- mkRowList 11 z
+  dList  <- mkRowList1 11 z
+  dList2 <- mkRowList2 12 z
   print "updating Spreadsheet"
-  editWs <- return $ setMultiMappedSheetCellData ws (concat dList)
+  editWs <- return $ setMultiMappedSheetCellData ws (concat (dList ++ dList2))
   print "writing Spreadsheet"
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
