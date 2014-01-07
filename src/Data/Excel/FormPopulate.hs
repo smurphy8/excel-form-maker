@@ -24,8 +24,8 @@ import Data.Time
 import Network (PortID (PortNumber))
 import Database.Persist.Quasi (lowerCaseSettings)
 import Control.Applicative
-
-
+import Data.Conduit
+import qualified Control.Monad as M
 import Data.Text hiding (take,head,tail,zip,zipWith,concat)
 import Debug.Trace
 import Codec.Xlsx.Parser
@@ -197,9 +197,6 @@ createForm = do
   print "writing Spreadsheet"
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
-
-
-
 defaultStepList :: [NominalDiffTime ]
 defaultStepList = take tc $ fmap (realToFrac.(* stp)) [zero ..]
          where 
@@ -216,6 +213,23 @@ testRawTurb = do
  z <- testTime
  k <-  runDB $ selectList ([OnpingTagHistoryPid ==.(Just 19813) ,OnpingTagHistoryTime >.(Just z)  ]||.[OnpingTagHistoryPid ==. (Just 19814), OnpingTagHistoryTime >. (Just z)]) [Desc OnpingTagHistoryTime , LimitTo 1000]
  print $ (onpingTagHistoryVal.entityVal) <$> k 
+
+
+-- --------------------------------------------------
+
+
+-- | Creates a limited data source that can be ran in place of a
+-- call to runDB $ selectList qry args
+
+dataSource ::(PersistEntityBackend a ~ MongoBackend ,PersistEntity a) =>  Int -> [Filter a] -> Source IO [Entity a]
+dataSource n qry = loop 1
+ where loop i = do 
+         rslt <- liftIO $ runDB $ selectList qry [LimitTo n, OffsetBy (i*n)] 
+         case rslt of 
+           [] -> return ()
+           l ->  do
+             yield l
+             loop (succ i)
 
 
 
