@@ -21,7 +21,10 @@ Library
                        ,hspec                    >= 1.7.2     &&   < 1.7.3
                        ,safe                     >= 0.3.3     &&   < 0.4.3
                        ,text                     >= 0.11.3.1  &&   < 0.11.3.3
-                       ,containers               >= 0.5       &&   < 0.5.3.2
+
+
+                       ,containers               >= 0.5.3.0   &&   < 0.5.3.2
+
                        ,transformers             >= 0.3.0.0
                        ,conduit                  
                        ,statistics

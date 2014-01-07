@@ -33,7 +33,7 @@ import Data.Conduit
 import Data.Conduit.Lazy
 import qualified Control.Monad as M
 import qualified Data.Foldable as F
-
+import qualified Data.Traversable as T
 
 import Codec.Xlsx.Parser
 import Codec.Xlsx.Writer
@@ -71,7 +71,7 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
 
-runDB a = withMongoDBConn "onping_production" "10.84.207.130" (PortNumber 27017) Nothing 2000 $ \pool -> do 
+runDB a = withMongoDBConn "onping_production" "10.61.187.199" (PortNumber 27017) Nothing 2000 $ \pool -> do 
   (runMongoDBPool master a )  pool
 
 
@@ -146,29 +146,12 @@ mkRowList1 bRow bTime = do
   return $ l1 ++ l2
       where r = realToFrac
             fcn30 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
-mkRowList2  :: (MonadIO m, MonadBaseControl IO m) => Int -> 
-     UTCTime -> m [[FullyIndexedCellValue]]
+
 mkRowList2 bRow bTime = do
-  ls  <- sequence (fcn31 `mapM` [mkTotalFlowRow,mkRawWaterPhRow,mkFinishWaterPhRow1,mkFinishWaterPhRow2,mkBackwashFlowTotalRow,mkRunStatusAccumulator1Row,mkRunStatusAccumulator2Row])
-  -- !l3 <- fcn31 
-  -- !l4 <- fcn31 
-  -- liftIO $ print "making finish Water" 
-  -- !l5 <- fcn31 
-
-
-  -- !l6 <- fcn31 
-  -- liftIO $ print "making backwash"   
-  -- !l7 <- fcn31 
-  -- liftIO $ print "making finish Water" 
-  -- !l8 <- fcn31 
-  -- liftIO $ print "making finish Water" 
-  -- !l9 <- fcn31 
-  -- liftIO $ print "done"   
-  return $ ls -- l3 ++ l4 ++ l5 ++ l6 ++ l7 ++ l8 ++ l9
+  ls  <- (fcn31 `T.mapM` [mkTotalFlowRow,mkRawWaterPhRow,mkFinishWaterPhRow1,mkFinishWaterPhRow2,mkBackwashFlowTotalRow,mkRunStatusAccumulator1Row,mkRunStatusAccumulator2Row])
+  return $ F.concat ls 
       where r = realToFrac
             fcn31 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
-
-
 
 testMkRowList = do 
   z   <- testTime
@@ -319,11 +302,11 @@ createForm = do
   z  <- testTime 
   print "making Rows"
   print "making Row Set 1"
-  dList  <- mkRowList1 11 z
+  !dList  <- mkRowList1 11 z
   print "making Row Set 2"
-  dList2 <- mkRowList2 12 z
+  !dList2 <- mkRowList2 12 z
   print "updating Spreadsheet"
-  editWs <- return $ setMultiMappedSheetCellData ws (concat (dList ++ dList2))
+  editWs <- return $ setMultiMappedSheetCellData ws (concat (dList))
   print "writing Spreadsheet"
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
@@ -341,7 +324,8 @@ defaultStepList = take tc $ fmap (realToFrac.(* stp)) [zero ..]
 
 testRawTurb = do 
  z <- testTime
- k <-  runDB $ selectList ([OnpingTagHistoryPid ==.(Just 19813) ,OnpingTagHistoryTime >.(Just z)  ]||.[OnpingTagHistoryPid ==. (Just 19814), OnpingTagHistoryTime >. (Just z)]) [Desc OnpingTagHistoryTime , LimitTo 1000]
+
+ k <-  selectListIncremental 1000 ([OnpingTagHistoryPid ==.(Just 19813) ,OnpingTagHistoryTime >.(Just z)  ]||.[OnpingTagHistoryPid ==. (Just 19814), OnpingTagHistoryTime >. (Just z)]) [Desc OnpingTagHistoryTime , LimitTo 1000]
  print $ (onpingTagHistoryVal.entityVal) <$> k 
 
 
@@ -360,6 +344,10 @@ dataSource n qry opts = loop 1
            l ->  do
              yield l
              loop (succ i)
+
+testSelectListIncremental = do 
+ r <- selectListIncremental 100 [OnpingTagHistoryPid ==. (Just 25315)] [LimitTo 1000]
+ T.traverse print (take 1000 r)
 
 
 selectListIncremental inc qry opts= do
