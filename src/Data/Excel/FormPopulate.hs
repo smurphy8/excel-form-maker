@@ -24,10 +24,17 @@ import Data.Time
 import Network (PortID (PortNumber))
 import Database.Persist.Quasi (lowerCaseSettings)
 import Control.Applicative
+
 import Debug.Trace
 import Data.List (foldl')
 import Data.Text hiding (take,head,tail,zip,zipWith,concat,foldl')
-import Debug.Trace
+
+import Data.Conduit
+import Data.Conduit.Lazy
+import qualified Control.Monad as M
+import qualified Data.Foldable as F
+
+
 import Codec.Xlsx.Parser
 import Codec.Xlsx.Writer
 import Codec.Xlsx.Lens
@@ -320,9 +327,6 @@ createForm = do
   print "writing Spreadsheet"
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
-
-
-
 defaultStepList :: [NominalDiffTime ]
 defaultStepList = take tc $ fmap (realToFrac.(* stp)) [zero ..]
          where 
@@ -341,4 +345,24 @@ testRawTurb = do
  print $ (onpingTagHistoryVal.entityVal) <$> k 
 
 
+-- --------------------------------------------------
 
+
+-- | Creates a limited data source that can be ran in place of a
+-- call to runDB $ selectList qry args
+
+dataSource ::(PersistEntityBackend a ~ MongoBackend ,PersistEntity a) =>  Int -> [Filter a] -> [SelectOpt a] -> Source IO [Entity a]
+dataSource n qry opts = loop 1
+ where loop i = do 
+         rslt <- liftIO $ runDB $ selectList qry ([LimitTo n, OffsetBy (i*n)]  ++ opts)
+         case rslt of 
+           [] -> return ()
+           l ->  do
+             yield l
+             loop (succ i)
+
+
+selectListIncremental inc qry opts= do
+  lol <- lazyConsume (dataSource inc qry opts)
+  return $ F.concat lol   
+  
