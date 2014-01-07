@@ -25,7 +25,9 @@ import Network (PortID (PortNumber))
 import Database.Persist.Quasi (lowerCaseSettings)
 import Control.Applicative
 import Data.Conduit
+import Data.Conduit.Lazy
 import qualified Control.Monad as M
+import qualified Data.Foldable as F
 import Data.Text hiding (take,head,tail,zip,zipWith,concat)
 import Debug.Trace
 import Codec.Xlsx.Parser
@@ -221,10 +223,10 @@ testRawTurb = do
 -- | Creates a limited data source that can be ran in place of a
 -- call to runDB $ selectList qry args
 
-dataSource ::(PersistEntityBackend a ~ MongoBackend ,PersistEntity a) =>  Int -> [Filter a] -> Source IO [Entity a]
-dataSource n qry = loop 1
+dataSource ::(PersistEntityBackend a ~ MongoBackend ,PersistEntity a) =>  Int -> [Filter a] -> [SelectOpt a] -> Source IO [Entity a]
+dataSource n qry opts = loop 1
  where loop i = do 
-         rslt <- liftIO $ runDB $ selectList qry [LimitTo n, OffsetBy (i*n)] 
+         rslt <- liftIO $ runDB $ selectList qry ([LimitTo n, OffsetBy (i*n)]  ++ opts)
          case rslt of 
            [] -> return ()
            l ->  do
@@ -232,4 +234,7 @@ dataSource n qry = loop 1
              loop (succ i)
 
 
-
+selectListIncremental inc qry opts= do
+  lol <- lazyConsume (dataSource inc qry opts)
+  return $ F.concat lol   
+  
