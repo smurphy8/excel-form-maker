@@ -30,7 +30,7 @@ import Data.List (foldl')
 import Data.Text hiding (take,head,tail,zip,zipWith,concat,foldl')
 
 import Data.Conduit
-import Data.Conduit.Lazy
+import Data.Conduit.List (consume)
 import qualified Control.Monad as M
 import qualified Data.Foldable as F
 import qualified Data.Traversable as T
@@ -230,7 +230,7 @@ mkBackwashFlowTotalRow ::  (MonadIO m, MonadBaseControl IO m) =>
 mkBackwashFlowTotalRow rowNum baseTime stepList = do 
   runDB $ do
     (mBackwashFlowTotalList)<- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just backwashFlowTotal)][]
-    return $ catMaybes [ (onpingTagToFICV 0 12 rowNum).entityVal <$> mBackwashFlowTotalList ]
+    return $ catMaybes [ (onpingTagToFICV 0 9 rowNum).entityVal <$> mBackwashFlowTotalList ]
 
 
 
@@ -252,14 +252,14 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 
 
 mkRunStatusAccumulator1Row rowNum baseTime stepList = do
-  !statusAccum1List <- selectListIncremental 100 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][Asc OnpingTagHistoryTime]
+  statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][]
   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
   return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
 
 
 
 mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
-  !statusAccum1List <- selectListIncremental 100 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterTwoRunStatus)][Asc OnpingTagHistoryTime]
+  statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterTwoRunStatus)][]
   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List        
   return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ ttl)]
 
@@ -299,12 +299,14 @@ createForm = do
   z  <- testTime 
   print "making Rows"
   print "making Row Set 1"
-  !dList  <- mkRowList1 11 z
+  dList  <- mkRowList1 11 z
+  print z  
   print "making Row Set 2"
-  !dList2 <- mkRowList2 12 z
+  dList2 <- mkRowList2 12 z
   print "updating Spreadsheet"
-  editWs <- return $ setMultiMappedSheetCellData ws (concat (dList))
+  editWs <- return $ setMultiMappedSheetCellData ws (concat (dList ++ dList2))
   print "writing Spreadsheet"
+  print dList2
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
 defaultStepList :: [NominalDiffTime ]
@@ -348,6 +350,7 @@ testSelectListIncremental = do
 
 selectListIncremental :: (PersistEntityBackend a ~ MongoBackend ,PersistEntity a ,MonadIO m , MonadBaseControl IO m, IO ~ m) => Int -> [Filter a] -> [SelectOpt a] -> m [Entity a]
 selectListIncremental inc qry opts= do
-  lol <- lazyConsume (dataSource inc qry opts)
+
+  lol <- (dataSource inc qry opts) $$ consume
   return $ F.concat lol   
   
