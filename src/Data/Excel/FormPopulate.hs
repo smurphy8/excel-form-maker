@@ -185,7 +185,7 @@ mkChlorineRow  rowNum baseTime stepList = do
 mkTotalFlowRow rowNum baseTime stepList = do 
   runDB $ do 
     (mTotalFlow) <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just totalFlow)] []    
-    return $ [ ((onpingTagToFICV 0 2  rowNum).entityVal) <$> mTotalFlow]
+    return $ catMaybes [ ((onpingTagToFICV 0 2  rowNum).entityVal) <$> mTotalFlow]
         
 
 
@@ -194,11 +194,11 @@ mkTotalFlowRow rowNum baseTime stepList = do
 -- rawWaterPH = 3176
 
 mkRawWaterPhRow ::  (MonadIO m, MonadBaseControl IO m) =>
-     Int -> UTCTime -> [NominalDiffTime] -> m [Maybe FullyIndexedCellValue]
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
 mkRawWaterPhRow rowNum baseTime stepList = do 
   runDB $ do 
     mRawWaterPHList <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just rawWaterPH)] []
-    return $ [ (onpingTagToFICV 0 26 rowNum).entityVal <$> mRawWaterPHList ]
+    return $ catMaybes  [ (onpingTagToFICV 0 26 rowNum).entityVal <$> mRawWaterPHList ]
 
 
 -- -- | aa12 ab12
@@ -206,19 +206,19 @@ mkRawWaterPhRow rowNum baseTime stepList = do
 -- finishWaterPH = 3190
 
 mkFinishWaterPhRow1 ::  (MonadIO m, MonadBaseControl IO m) =>
-     Int -> UTCTime -> [NominalDiffTime] -> m [Maybe FullyIndexedCellValue]
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
 mkFinishWaterPhRow1 rowNum baseTime stepList = do 
   runDB $ do 
     mFinishWaterPHList <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just finishWaterPH)][]
-    return $ [ (onpingTagToFICV 0 27 rowNum).entityVal <$> mFinishWaterPHList]
+    return $ catMaybes [ (onpingTagToFICV 0 27 rowNum).entityVal <$> mFinishWaterPHList]
 
 mkFinishWaterPhRow2 ::  (MonadIO m, MonadBaseControl IO m) =>
-     Int -> UTCTime -> [NominalDiffTime] -> m [Maybe FullyIndexedCellValue]
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
 mkFinishWaterPhRow2 rowNum baseTime stepList = do 
   runDB $ do
     let newBaseTime = addUTCTime  (realToFrac 4*3600) baseTime
     (mFinishWaterPHList)<- selectFirst [OnpingTagHistoryTime >=. (Just newBaseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta newBaseTime)), OnpingTagHistoryPid ==. (Just finishWaterPH)][]
-    return $ [ (onpingTagToFICV 0 28 rowNum).entityVal <$> mFinishWaterPHList]
+    return $ catMaybes [ (onpingTagToFICV 0 28 rowNum).entityVal <$> mFinishWaterPHList]
 
 
 -- -- | i12
@@ -226,11 +226,11 @@ mkFinishWaterPhRow2 rowNum baseTime stepList = do
 -- backwashFlowTotal = 3955
 
 mkBackwashFlowTotalRow ::  (MonadIO m, MonadBaseControl IO m) =>
-     Int -> UTCTime -> [NominalDiffTime] -> m [Maybe FullyIndexedCellValue]
+     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
 mkBackwashFlowTotalRow rowNum baseTime stepList = do 
   runDB $ do
     (mBackwashFlowTotalList)<- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just backwashFlowTotal)][]
-    return $ [ (onpingTagToFICV 0 12 rowNum).entityVal <$> mBackwashFlowTotalList ]
+    return $ catMaybes [ (onpingTagToFICV 0 12 rowNum).entityVal <$> mBackwashFlowTotalList ]
 
 
 
@@ -254,14 +254,14 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 mkRunStatusAccumulator1Row rowNum baseTime stepList = do
   !statusAccum1List <- selectListIncremental 100 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][Asc OnpingTagHistoryTime]
   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
-  return $ Just <$> [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
+  return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
 
 
 
 mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
   !statusAccum1List <- selectListIncremental 100 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterTwoRunStatus)][Asc OnpingTagHistoryTime]
   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List        
-  return $ Just <$> [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ ttl)]
+  return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ ttl)]
 
 
 
