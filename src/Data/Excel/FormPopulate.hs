@@ -126,7 +126,7 @@ delta = realToFrac (30::Integer)
 testTime :: IO UTCTime
 testTime = do 
    k <- getCurrentTime
-   return $ UTCTime (fromGregorian  2013 10 14) (fromIntegral $ 4 * 3600)
+   return $ UTCTime (fromGregorian  2013 11 00) (fromIntegral $ 0)
    
 oneDay :: NominalDiffTime 
 oneDay = realToFrac $ 60*60*24
@@ -141,23 +141,25 @@ mkRowList1 bRow bTime = do
             fcn30 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 mkRowList2  :: (MonadIO m, MonadBaseControl IO m) => Int -> 
      UTCTime -> m [[FullyIndexedCellValue]]
-mkRowList2 bRow bTime = do 
-  l3 <- fcn31 mkTotalFlowRow
-  l4 <- fcn31 mkRawWaterPhRow
-  liftIO $ print "making finish Water" 
-  l5 <- fcn31 mkFinishWaterPhRow1
+mkRowList2 bRow bTime = do
+  ls  <- sequence (fcn31 `mapM` [mkTotalFlowRow,mkRawWaterPhRow,mkFinishWaterPhRow1,mkFinishWaterPhRow2,mkBackwashFlowTotalRow,mkRunStatusAccumulator1Row,mkRunStatusAccumulator2Row])
+  -- !l3 <- fcn31 
+  -- !l4 <- fcn31 
+  -- liftIO $ print "making finish Water" 
+  -- !l5 <- fcn31 
 
-  l6 <- fcn31 mkFinishWaterPhRow2
-  liftIO $ print "making backwash"   
-  l7 <- fcn31 mkBackwashFlowTotalRow
-  liftIO $ print "making finish Water" 
-  l8 <- fcn31 mkRunStatusAccumulator1Row
-  liftIO $ print "making finish Water" 
-  l9 <- fcn31 mkRunStatusAccumulator2Row
-  liftIO $ print "done"   
-  return $ l3 ++ l4 ++ l5 ++ l6 ++ l7 ++ l8 ++ l9
+
+  -- !l6 <- fcn31 
+  -- liftIO $ print "making backwash"   
+  -- !l7 <- fcn31 
+  -- liftIO $ print "making finish Water" 
+  -- !l8 <- fcn31 
+  -- liftIO $ print "making finish Water" 
+  -- !l9 <- fcn31 
+  -- liftIO $ print "done"   
+  return $ ls -- l3 ++ l4 ++ l5 ++ l6 ++ l7 ++ l8 ++ l9
       where r = realToFrac
-            fcn31 !f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
+            fcn31 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
 
 
@@ -309,7 +311,9 @@ createForm = do
   ws <- getWorksheets x
   z  <- testTime 
   print "making Rows"
+  print "making Row Set 1"
   dList  <- mkRowList1 11 z
+  print "making Row Set 2"
   dList2 <- mkRowList2 12 z
   print "updating Spreadsheet"
   editWs <- return $ setMultiMappedSheetCellData ws (concat (dList ++ dList2))
