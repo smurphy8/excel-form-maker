@@ -71,11 +71,8 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
 
-<<<<<<< Updated upstream
-runDB a = withMongoDBConn "onping_production"  "10.84.207.130" (PortNumber 27017) Nothing 2 $ \pool -> do 
-=======
 runDB a = withMongoDBConn "onping_production"  "10.84.207.130" (PortNumber 27017) Nothing 2000 $ \pool -> do 
->>>>>>> Stashed changes
+
   (runMongoDBPool slaveOk a )  pool
 
 
@@ -152,11 +149,13 @@ mkRowList1 bRow bTime = do
             fcn30 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
 mkRowList2 bRow bTime = do
-  ls  <- (fcn31 `T.mapM` [mkTotalFlowRow, mkRawWaterPhRow, mkFinishWaterPhRow1, mkFinishWaterPhRow2, mkBackwashFlowTotalRow, mkRunStatusAccumulator1Row, mkRunStatusAccumulator2Row ])
-  return $ F.concat ls 
+  ls  <- (fcn31 `T.mapM` [mkTotalFlowRow, mkRawWaterPhRow, mkFinishWaterPhRow1, mkFinishWaterPhRow2, mkBackwashFlowTotalRow])-- mkRunStatusAccumulator1Row, mkRunStatusAccumulator2Row ])
+  acc1 <- mkRunStatusAccumulator1Row rowList
+  return $ (F.concat ls ) ++ acc1
       where r = realToFrac
             fcn31 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
-
+            rowList = (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime)) -- extracted for accumulators
+          
 testMkRowList = do 
   z   <- testTime
   rowListList <- mkRowList1 0 z
@@ -259,25 +258,25 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 --   statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][]
 --   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
 --   return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
-<<<<<<< Updated upstream
-mkRunStatusAccumulator1Row rowNum baseTime stepList = do
-=======
 
 mkRunStatusAccumulator1Row rowandtime = do
   print "Accumulator 1 row"
   print rowandtime
->>>>>>> Stashed changes
   ttl  <- runDB $ do
-    Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") 
-    
-  return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
+    let countingFcn (r,t) = (\x -> (r,t, x)) <$> (Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: t , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) t)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") )
+    T.traverse countingFcn rowandtime
+  print ttl
+  return $ (\(r,t,i) -> [ (onpingTagToFICV 0 3 r) $ OnpingTagHistory (Just filterOneRunStatus) (Just t) (Just $ (fromIntegral i))]) <$> ttl
 
 
 
 
 mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
+  print "Accumulator 2 row"
   ttl  <- runDB $ do
     Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterTwoRunStatus ] "onping_tag_history")      
+  
+  print ttl
   return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
 
 
