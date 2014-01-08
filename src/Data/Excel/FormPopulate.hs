@@ -71,7 +71,11 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
 
+<<<<<<< Updated upstream
 runDB a = withMongoDBConn "onping_production"  "10.84.207.130" (PortNumber 27017) Nothing 2 $ \pool -> do 
+=======
+runDB a = withMongoDBConn "onping_production"  "10.84.207.130" (PortNumber 27017) Nothing 2000 $ \pool -> do 
+>>>>>>> Stashed changes
   (runMongoDBPool slaveOk a )  pool
 
 
@@ -255,7 +259,14 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 --   statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][]
 --   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
 --   return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
+<<<<<<< Updated upstream
 mkRunStatusAccumulator1Row rowNum baseTime stepList = do
+=======
+
+mkRunStatusAccumulator1Row rowandtime = do
+  print "Accumulator 1 row"
+  print rowandtime
+>>>>>>> Stashed changes
   ttl  <- runDB $ do
     Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") 
     
