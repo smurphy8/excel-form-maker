@@ -255,6 +255,7 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 -- mkRunStatusAccumulator1Row rowNum baseTime stepList = do
 --   statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][]
 --   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
@@ -270,15 +271,21 @@ mkRunStatusAccumulator1Row rowandtime = do
   return $ (\(r,t,i) -> [ (onpingTagToFICV 0 3 r) $ OnpingTagHistory (Just filterOneRunStatus) (Just t) (Just $ (fromIntegral i))]) <$> ttl
 
 =======
+=======
+>>>>>>> parent of f540d0f... Trying to use count
 mkRunStatusAccumulator1Row rowNum baseTime stepList = do
   statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][]
   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
   return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
+<<<<<<< HEAD
+>>>>>>> parent of f540d0f... Trying to use count
+=======
 >>>>>>> parent of f540d0f... Trying to use count
 
 
 
 mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
+<<<<<<< HEAD
 <<<<<<< HEAD
   print "Accumulator 2 row"
   ttl  <- runDB $ do
@@ -292,6 +299,11 @@ mkRunStatusAccumulator2Row rowNum baseTime stepList = do
 --   statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterTwoRunStatus)][]
 --   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List        
 --   return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ ttl)]
+=======
+  statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterTwoRunStatus)][]
+  let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List        
+  return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ ttl)]
+>>>>>>> parent of f540d0f... Trying to use count
 =======
   statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterTwoRunStatus)][]
   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List        
