@@ -35,6 +35,7 @@ Library
                        ,yesod-core
                        ,yesod                  
                        ,template-haskell
+                       ,mongoDB
                        ,persistent-template                       
                        ,persistent-mongoDB
                        ,persistent
