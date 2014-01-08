@@ -71,7 +71,7 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
 
-runDB a = withMongoDBConn "onping_production"  "10.84.207.130" (PortNumber 27017) Nothing 2 $ \pool -> do 
+runDB a = withMongoDBConn "onping_production"  "10.84.207.130" (PortNumber 27017) Nothing 20 $ \pool -> do 
   (runMongoDBPool slaveOk a )  pool
 
 
@@ -133,7 +133,7 @@ delta = realToFrac (30::Integer)
 testTime :: IO UTCTime
 testTime = do 
    k <- getCurrentTime
-   return $ UTCTime (fromGregorian  2013 11 00) (fromIntegral $ 0)
+   return $ UTCTime (fromGregorian  2013 12 00) (fromIntegral $ 0)
    
 oneDay :: NominalDiffTime 
 oneDay = realToFrac $ 60*60*24
@@ -160,27 +160,24 @@ testMkRowList = do
 
 
 -- | Turbidity Functions
-mkTurbidityRow  :: (MonadIO m, MonadBaseControl IO m) =>
-     Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkTurbidityRow  :: (MonadIO m, MonadBaseControl IO m ) => Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
 mkTurbidityRow rowNum baseTime stepList = do
   runDB $ do
     mrawTurb <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just rawTurb)][]
     freshTurbMlist <-  mapM  (\s -> selectFirst (mkDataRowFilter freshTurb baseTime s) [Asc OnpingTagHistoryTime] ) stepList
     let mRawTurbFICV = (onpingTagToFICV 1 16 rowNum).entityVal <$> mrawTurb 
-        freshTurbList = fromJust $ sequence freshTurbMlist
+        freshTurbList = (fromMaybe []) $ sequence freshTurbMlist
         turbidityIdx = (\(i, x) -> (onpingTagToFICV 1 i rowNum x)) <$> (zip [19..24] (entityVal <$> freshTurbList))        
-    return $ fromJust mRawTurbFICV : turbidityIdx
+    _ <-return $ freshTurbMlist
+    return $ (maybeToList mRawTurbFICV) ++  turbidityIdx
 
 
-mkChlorineRow  rowNum baseTime stepList = do
+mkChlorineRow rowNum baseTime stepList = do
   runDB $ do
     chlorineMlist <- mapM (\s -> selectFirst (mkDataRowFilter chlorine baseTime s) [Asc OnpingTagHistoryTime])  stepList 
-    let chlorineList = fromJust $ sequence chlorineMlist
+    let chlorineList = (fromMaybe []) $ sequence chlorineMlist
         chlorineIdx = (\(i,x) -> (onpingTagToFICV 1 i rowNum x)) <$> (zip [25 .. 30] (entityVal <$> chlorineList))        
     return $ chlorineIdx
-
-
-
 
 mkTotalFlowRow rowNum baseTime stepList = do 
   runDB $ do 
@@ -256,17 +253,20 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 --   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
 --   return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
 mkRunStatusAccumulator1Row rowNum baseTime stepList = do
+  print "Acc1" 
   ttl  <- runDB $ do
     Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") 
-    
+  print ttl    
   return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
 
 
 
 
 mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
+  print "ACC2" 
   ttl  <- runDB $ do
     Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterTwoRunStatus ] "onping_tag_history")      
+  print ttl
   return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
 
 
@@ -318,7 +318,6 @@ createForm = do
   print "updating Spreadsheet"
   editWs <- return $ setMultiMappedSheetCellData ws (concat (dList ++ dList2))
   print "writing Spreadsheet"
-  print dList2
   writeXlsx "ptest2.xlsx" x (Just editWs)
 
 defaultStepList :: [NominalDiffTime ]

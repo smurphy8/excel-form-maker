@@ -21,22 +21,20 @@ Library
                        ,hspec                    >= 1.7.2     &&   < 1.7.3
                        ,safe                     >= 0.3.3     &&   < 0.4.3
                        ,text                     >= 0.11.3.1  &&   < 0.11.3.3
-
-
                        ,containers               >= 0.5.3.0   &&   < 0.5.3.2
-
                        ,transformers             >= 0.3.0.0
-                       ,conduit                  
+                       ,conduit            
                        ,statistics
                        ,time
                        ,vector
                        ,monad-control
                        ,network
                        ,yesod-core
-                       ,yesod                  
+                       ,yesod    
                        ,template-haskell
-                       ,persistent-template                       
+                       ,persistent-template
                        ,persistent-mongoDB
+                       ,mongoDB
                        ,persistent
 
 Test-Suite spec
