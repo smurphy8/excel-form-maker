@@ -150,7 +150,7 @@ mkRowList1 bRow bTime = do
 mkRowList2 bRow bTime = do
   ls  <- (fcn31 `T.mapM` [mkTotalFlowRow, mkRawWaterPhRow, mkFinishWaterPhRow1, mkFinishWaterPhRow2, mkBackwashFlowTotalRow])-- mkRunStatusAccumulator1Row, mkRunStatusAccumulator2Row ])
   acc1 <- mkRunStatusAccumulator1Row rowList
-  return $ F.concat ls 
+  return $ (F.concat ls ) ++ acc1
       where r = realToFrac
             fcn31 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
             rowList = (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime)) -- extracted for accumulators
@@ -261,9 +261,10 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 mkRunStatusAccumulator1Row rowandtime = do
   print "Accumulator 1 row"
   ttl  <- runDB $ do
-    let countingFcn (r,t) = Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: t , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) t)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") 
+    let countingFcn (r,t) = (\x -> (r,t, x)) <$> (Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: t , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) t)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") )
+    T.traverse countingFcn rowandtime
   print ttl
-  return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
+  return $ (\(r,t,i) -> [ (onpingTagToFICV 0 3 r) $ OnpingTagHistory (Just filterOneRunStatus) (Just t) (Just $ (fromIntegral i))]) <$> ttl
 
 
 
