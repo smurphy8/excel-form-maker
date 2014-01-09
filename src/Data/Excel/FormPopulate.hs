@@ -42,7 +42,10 @@ import Codec.Xlsx
 import Language.Haskell.TH.Syntax
 
 
-
+-- plantName Row 3 Col 37
+-- PWSID Row 4 Col 37
+-- Month Row 5 Col 37
+-- 
   
 
 
@@ -58,7 +61,6 @@ dataList = [ FICV 0 16 11 (CellDouble 333.0), FICV 0 16 13 (CellDouble 332.0), F
              FICV 0 23 11 (CellDouble 333.0), FICV 0 23 13 (CellDouble 332.0), FICV 0 23 13 (CellDouble 332.0), FICV 0 23 14 (CellDouble 332.0),
              FICV 0 24 11 (CellDouble 333.0), FICV 0 24 13 (CellDouble 332.0), FICV 0 24 13 (CellDouble 332.0), FICV 0 24 14 (CellDouble 332.0)]
            
-
 
 share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False }, mkMigrate "migrateAll"]
     $(persistFileWith lowerCaseSettings "modelsMongo")
@@ -122,6 +124,14 @@ rawTurb = 3163
 chlorine :: Int
 chlorine = 3189
 
+chlorineScale1 :: Int
+chlorineScale1 = 3172
+
+
+chlorineScale2 :: Int
+chlorineScale2 = 3175
+
+
 totalFlow :: Int 
 totalFlow = 3950
 
@@ -130,34 +140,52 @@ delta = realToFrac (30::Integer)
 
 
 
+oneDay :: NominalDiffTime                                                                                                                                                    
+oneDay = realToFrac $ 60*60*24   
+
 testTime :: IO UTCTime
 testTime = do 
    k <- getCurrentTime
    return $ UTCTime (fromGregorian  2013 10 00) (fromIntegral $ 0)
    
-oneDay :: NominalDiffTime 
-oneDay = realToFrac $ 60*60*24
 
-mkRowList1  :: (MonadIO m, MonadBaseControl IO m) => Int -> 
-     UTCTime -> m [[FullyIndexedCellValue]]
-mkRowList1 bRow bTime = do 
+mkRowList1  :: (MonadIO m, MonadBaseControl IO m) => Int ->  UTCTime -> m [[FullyIndexedCellValue]]
+mkRowList1 bRow bTime = do
   l1 <- fcn30 mkTurbidityRow
-  l2 <- fcn30 mkChlorineRow
+  l2 <- fcn30 mkChlorineRow  
   return $ l1 ++ l2
       where r = realToFrac
             fcn30 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
 mkRowList2 bRow bTime = do
-  ls  <- (fcn31 `T.mapM` [mkTotalFlowRow, mkRawWaterPhRow, mkFinishWaterPhRow1, mkFinishWaterPhRow2, mkBackwashFlowTotalRow, mkRunStatusAccumulator1Row, mkRunStatusAccumulator2Row ])
+  ls  <- (fcn31 `T.mapM` [mkTotalFlowRow, mkRawWaterPhRow, mkFinishWaterPhRow1, mkFinishWaterPhRow2, mkBackwashFlowTotalRow,mkChlorineScale2,mkChlorineScale1 ]) -- , mkRunStatusAccumulator1Row, mkRunStatusAccumulator2Row])
   return $ F.concat ls 
       where r = realToFrac
             fcn31 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
+  
 testMkRowList = do 
   z   <- testTime
   rowListList <- mkRowList1 0 z
   print rowListList
 
+-- | Add the current month 
+addMonth  :: (MonadIO m, MonadBaseControl IO m ) => UTCTime -> m [FullyIndexedCellValue]
+addMonth = undefined
+
+-- | Chlorine Functions
+mkChlorineScale1 :: (MonadIO m, MonadBaseControl IO m ) => Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkChlorineScale1 rowNum baseTime stepList =
+  runDB $ do
+    mScale1 <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just chlorineScale1)] []
+    return $ catMaybes [ ((onpingTagToFICV 0 17 rowNum ).entityVal) <$> mScale1 ]
+
+mkChlorineScale2 :: (MonadIO m, MonadBaseControl IO m ) => Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
+mkChlorineScale2 rowNum baseTime stepList =
+  runDB $ do
+    mScale2 <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just chlorineScale2)] []
+    return $ catMaybes [ ((onpingTagToFICV 0 18 rowNum ).entityVal) <$> mScale2 ]
+ 
 
 -- | Turbidity Functions
 mkTurbidityRow  :: (MonadIO m, MonadBaseControl IO m ) => Int -> UTCTime -> [NominalDiffTime] -> m [FullyIndexedCellValue]
@@ -171,7 +199,6 @@ mkTurbidityRow rowNum baseTime stepList = do
     _ <-return $ freshTurbMlist
     return $ (maybeToList mRawTurbFICV) ++  turbidityIdx
 
-
 mkChlorineRow rowNum baseTime stepList = do
   runDB $ do
     chlorineMlist <- mapM (\s -> selectFirst (mkDataRowFilter chlorine baseTime s) [Asc OnpingTagHistoryTime])  stepList 
@@ -184,7 +211,6 @@ mkTotalFlowRow rowNum baseTime stepList = do
     (mTotalFlow) <- selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just totalFlow)] []    
     return $ catMaybes [ ((onpingTagToFICV 0 2  rowNum).entityVal) <$> mTotalFlow]
         
-
 
 -- -- | z12 26
 -- rawWaterPH :: Int
