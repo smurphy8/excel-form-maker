@@ -133,7 +133,7 @@ delta = realToFrac (30::Integer)
 testTime :: IO UTCTime
 testTime = do 
    k <- getCurrentTime
-   return $ UTCTime (fromGregorian  2013 12 00) (fromIntegral $ 0)
+   return $ UTCTime (fromGregorian  2013 10 00) (fromIntegral $ 0)
    
 oneDay :: NominalDiffTime 
 oneDay = realToFrac $ 60*60*24
