@@ -109,6 +109,12 @@ backwashFlowTotal = 3955
 filterOneRunStatus :: Int
 filterOneRunStatus = 3128
 
+filterOnePumpRunTime :: Int 
+filterOnePumpRunTime = 33651
+
+filterTwoPumpRunTime :: Int 
+filterTwoPumpRunTime = 33652
+
 -- | d12
 filterTwoRunStatus :: Int
 filterTwoRunStatus = 3144
@@ -278,22 +284,29 @@ mkBackwashFlowTotalRow rowNum baseTime stepList = do
 --   statusAccum1List <- selectListIncremental 1000 [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <=. (Just (addUTCTime (realToFrac 24*3600) baseTime)), OnpingTagHistoryPid ==. (Just filterOneRunStatus)][]
 --   let ttl = foldl' (\s v -> s + v) 0 $ catMaybes $ onpingTagHistoryVal.entityVal <$> statusAccum1List    
 --   return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ ttl)]
+
+
 mkRunStatusAccumulator1Row rowNum baseTime stepList = do
   print "Acc1" 
-  ttl  <- runDB $ do
-    Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") 
-  print ttl    
-  return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
+  mf1RunTime  <- runDB $ do
+            selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just filterOnePumpRunTime)][]
+--    Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterOneRunStatus ] "onping_tag_history") 
+  let mF1' = (\oth@(OnpingTagHistory t p v) -> oth{onpingTagHistoryVal = (fmap (\a -> a/60) v) }).entityVal <$> ( mf1RunTime) -- Convert min runtime to hours
+  return $ catMaybes [ (onpingTagToFICV 0 3 rowNum) <$> mF1']
+
+--  return $ [ (onpingTagToFICV 0 3 rowNum) $ OnpingTagHistory (Just filterOneRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
 
 
 
 
 mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
   print "ACC2" 
-  ttl  <- runDB $ do
-    Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterTwoRunStatus ] "onping_tag_history")      
-  print ttl
-  return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
+  mf2RunTime  <- runDB $ do
+            selectFirst [OnpingTagHistoryTime >=. (Just baseTime),OnpingTagHistoryTime <. (Just (addUTCTime delta baseTime)), OnpingTagHistoryPid ==. (Just filterTwoPumpRunTime)][]
+--    Mdb.count (Mdb.select ["time" Mdb.=: ["$gt" Mdb.=: baseTime , "$lt" Mdb.=: (addUTCTime (realToFrac 24*3600) baseTime)] , "pid" Mdb.=: filterTwoRunStatus ] "onping_tag_history")      
+  let mF2' = (\oth@(OnpingTagHistory t p v) -> oth{onpingTagHistoryVal = (fmap (\a -> a/60) v) }).entityVal <$> ( mf2RunTime) -- Convert min runtime to hours
+  return $ catMaybes [ (onpingTagToFICV 0 4 rowNum) <$> mF2']
+--  return $ [ (onpingTagToFICV 0 4 rowNum) $ OnpingTagHistory (Just filterTwoRunStatus) (Just baseTime) (Just $ (fromIntegral ttl))]
 
 
 -- mkRunStatusAccumulator2Row rowNum baseTime stepList = do 
