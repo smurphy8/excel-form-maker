@@ -73,7 +73,7 @@ share [mkPersist (mkPersistSettings (ConT ''MongoBackend)) { mpsGeneric = False 
 runDB :: forall (m :: * -> *) b.(MonadIO m ,MonadBaseControl IO m) =>
                Action m b -> m b
 
-runDB a = withMongoDBConn "onping_production"  "10.84.207.130" (PortNumber 27017) Nothing 20 $ \pool -> do 
+runDB a = withMongoDBConn "onping_production"  "10.61.187.196" (PortNumber 27017) Nothing 20 $ \pool -> do 
   (runMongoDBPool slaveOk a )  pool
 
 
@@ -125,11 +125,11 @@ chlorine :: Int
 chlorine = 3189
 
 chlorineScale1 :: Int
-chlorineScale1 = 3172
+chlorineScale1 = 3195
 
 
 chlorineScale2 :: Int
-chlorineScale2 = 3175
+chlorineScale2 = 3197
 
 
 totalFlow :: Int 
@@ -146,7 +146,7 @@ oneDay = realToFrac $ 60*60*24
 testTime :: IO UTCTime
 testTime = do 
    k <- getCurrentTime
-   return $ UTCTime (fromGregorian  2013 10 00) (fromIntegral $ 0)
+   return $ UTCTime (fromGregorian  2014 02 00) (fromIntegral $ 0)
    
 
 mkRowList1  :: (MonadIO m, MonadBaseControl IO m) => Int ->  UTCTime -> m [[FullyIndexedCellValue]]
@@ -158,7 +158,7 @@ mkRowList1 bRow bTime = do
             fcn30 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
 
 mkRowList2 bRow bTime = do
-  ls  <- (fcn31 `T.mapM` [mkTotalFlowRow, mkRawWaterPhRow, mkFinishWaterPhRow1, mkFinishWaterPhRow2, mkBackwashFlowTotalRow,mkChlorineScale2,mkChlorineScale1 ]) -- , mkRunStatusAccumulator1Row, mkRunStatusAccumulator2Row])
+  ls  <- (fcn31 `T.mapM` [mkTotalFlowRow, mkRawWaterPhRow, mkFinishWaterPhRow1, mkFinishWaterPhRow2, mkBackwashFlowTotalRow,mkChlorineScale2,mkChlorineScale1 , mkRunStatusAccumulator1Row, mkRunStatusAccumulator2Row])
   return $ F.concat ls 
       where r = realToFrac
             fcn31 f = mapM (\(i,newTime) -> f (i) (newTime) defaultStepList) (zipWith (\i b -> (i+ bRow,addUTCTime ((r i)*oneDay) b)) [0 .. 30] (repeat bTime))
